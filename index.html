@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7eaf0">
+<title>AgeLog</title>
+<style>
+:root{
+  --bg:#fff9fb; --card:#fff; --ink:#514852; --muted:#8d838c;
+  --pink:#e8b9c9; --pink2:#f6dfe8; --lav:#d9d2ee; --mint:#cfe8df;
+  --blue:#d7e8f2; --line:#eee3e8; --danger:#c77b8e;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);
+font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP","Yu Gothic",sans-serif}
+button,input,select,textarea{font:inherit} button{cursor:pointer}
+header{padding:20px 18px 12px;position:sticky;top:0;background:rgba(255,249,251,.94);backdrop-filter:blur(10px);z-index:5}
+h1{font-size:24px;margin:0 0 4px}.sub{font-size:12px;color:var(--muted)}
+main{max-width:720px;margin:auto;padding:8px 16px 90px}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:12px 0;box-shadow:0 3px 14px rgba(120,80,100,.05)}
+h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:12px;color:var(--muted);display:block;margin:8px 0 5px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;background:#fff;color:var(--ink);outline:none}
+textarea{min-height:90px;resize:vertical}
+.btn{border:0;border-radius:13px;padding:11px 14px;background:var(--pink2);color:#654f59}
+.btn.primary{background:var(--pink);color:#4e3943;font-weight:600}.btn.soft{background:#f5f0f7}.btn.danger{background:#f7e0e5;color:#9a5365}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tabs{display:flex;gap:7px;overflow:auto;padding:4px 0 8px}.tab{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;color:var(--muted)}.tab.active{background:var(--pink2);color:var(--ink);border-color:#efd0dc}
+.char{display:flex;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--line);border-radius:15px;margin:8px 0}.avatar{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:var(--lav);font-weight:700}.charleft{display:flex;gap:10px;align-items:center}.small{font-size:12px;color:var(--muted)}.age{font-size:18px;font-weight:700}
+.result{background:#fff8fb;border-radius:15px;padding:12px;margin-top:10px}.result strong{font-size:18px}.pill{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;background:var(--mint);margin:3px 3px 0 0}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-weight:500}
+.empty{text-align:center;color:var(--muted);padding:22px 8px}.note{font-size:12px;color:var(--muted);line-height:1.6}
+.modal{position:fixed;inset:0;background:rgba(60,40,50,.25);display:none;align-items:flex-end;justify-content:center;z-index:10}.modal.show{display:flex}.sheet{background:#fff;border-radius:24px 24px 0 0;width:min(720px,100%);height:min(94dvh,900px);max-height:calc(100dvh - env(safe-area-inset-top));overflow:auto;overflow-x:hidden;padding:20px 18px calc(32px + env(safe-area-inset-bottom));scroll-padding-bottom:45vh;-webkit-overflow-scrolling:touch}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.iconbtn{border:0;background:transparent;color:var(--muted);font-size:20px}
+.event{padding:12px;border:1px solid var(--line);border-radius:14px;margin:8px 0}.event b{display:block;margin-bottom:4px}.event.calc .eventdetail{font-size:15px;line-height:1.7;white-space:pre-wrap}.eventdetail{line-height:1.6;white-space:pre-wrap}.page{padding-bottom:30px}.pagehead{display:flex;align-items:center;gap:8px;margin-bottom:12px}.pagehead h2{margin:0}.backbtn{white-space:nowrap}.memo-list .event{display:flex;align-items:center;justify-content:space-between;gap:10px}.memo-title{flex:1;min-width:0}.memo-title button{border:0;background:transparent;padding:0;text-align:left;color:var(--ink);width:100%;font-weight:600}.memo-actions{display:flex;align-items:center;gap:8px}.calc-table th{white-space:nowrap}.calc-table td{font-size:14px}.calc-table td.agecol{font-weight:600}.calc-table td.gradecol{color:var(--muted)}
+@media(min-width:600px){.modal{align-items:center}.sheet{height:auto;max-height:88dvh;border-radius:24px}}
+</style>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#f4dce7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+</head>
+<body>
+<header>
+  <h1>🌷 AgeLog</h1>
+  <div class="sub">年齢・学年・時系列を、作品ごとにすっきり管理</div>
+</header>
+<main id="app"></main>
+<div id="modal" class="modal"><div class="sheet" id="sheet"></div></div>
+<script>
+const KEY="sousaku_agebook_v1";
+let db=JSON.parse(localStorage.getItem(KEY)||'{"works":[],"selected":null}');
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function work(){return db.works.find(x=>x.id===db.selected)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+function openSheet(html){document.getElementById("sheet").innerHTML=html;document.getElementById("modal").classList.add("show")}
+function dateFromAge(age,month,day,ref){ // birth year is intentionally hidden from user; infer a compatible year
+  const r=new Date(ref+"T12:00:00"); let y=r.getFullYear()-age;
+  const b=new Date(y+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0")+"T12:00:00");
+  if(b>r)y--; return {year:y,month,day};
+}
+function birthDate(c){
+  if(c.birthYear) return new Date(c.birthYear+"-"+String(c.month).padStart(2,"0")+"-"+String(c.day).padStart(2,"0")+"T12:00:00");
+  const b=dateFromAge(c.baseAge,c.month,c.day,work().baseDate);
+  return new Date(b.year+"-"+String(b.month).padStart(2,"0")+"-"+String(b.day).padStart(2,"0")+"T12:00:00");
+}
+function ageAt(c, dateStr){
+  const d=new Date(dateStr+"T12:00:00"), b=birthDate(c);
+  let a=d.getFullYear()-b.getFullYear();
+  const before=(d.getMonth()<b.getMonth())||(d.getMonth()===b.getMonth()&&d.getDate()<b.getDate());
+  if(before)a--; return a;
+}
+function gradeAt(c,dateStr){
+  const a=ageAt(c,dateStr);
+  // Japanese standard school timing: school year is Apr 1-Mar 31.
+  const b=birthDate(c), d=new Date(dateStr+"T12:00:00");
+  const schoolYear=d.getFullYear()-(d.getMonth()<3?1:0);
+  const birthSchoolYear=b.getFullYear()-(b.getMonth()<3?1:0);
+  const years=schoolYear-birthSchoolYear;
+  if(years>=6&&years<=11)return "小学"+(years-5)+"年";
+  if(years>=12&&years<=14)return "中学"+(years-11)+"年";
+  if(years>=15&&years<=17)return "高校"+(years-14)+"年";
+  if(years>=18&&years<=21)return "大学"+(years-17)+"年";
+  if(years<6)return "未就学";
+  return "学校外";
+}
+function fmtDate(s){return s?.replaceAll("-","/")||""}
+function render(){
+  const root=document.getElementById("app");
+  if(!db.works.length){
+    root.innerHTML=`<div class="card"><h2>作品をはじめる</h2><p class="note">作品ごとにキャラクター設定を分けて保存できます。生まれ年は入力せず、「基準日時点の年齢＋誕生日」から内部的に計算します。</p><button class="btn primary" onclick="newWork()">＋ 新しい作品</button></div>`;
+    return;
+  }
+  if(!work())db.selected=db.works[0].id;
+  const w=work();
+  root.innerHTML=`
+  <div class="tabs">${db.works.map(x=>`<button class="tab ${x.id===w.id?'active':''}" onclick="selectWork('${x.id}')">${esc(x.name)}</button>`).join("")}<button class="tab" onclick="newWork()">＋</button></div>
+  <div class="card"><div class="row"><div><h2 style="margin-bottom:3px">${esc(w.name)}</h2><div class="small">基準日：${fmtDate(w.baseDate)}</div></div><button class="iconbtn" onclick="editWork()">⚙</button></div></div>
+  <div class="card"><h2>👤 キャラクター</h2>
+    ${w.chars.length?w.chars.map((c,i)=>`<div class="char"><div class="charleft"><div class="avatar">${esc(c.name.slice(0,1))}</div><div><b>${esc(c.name)}</b><div class="small">${c.baseAge}歳・${c.month}/${c.day}生まれ</div></div></div><div class="actions"><button class="btn soft" onclick="moveChar('${c.id}',-1)" ${i===0?'disabled':''}>↑</button><button class="btn soft" onclick="moveChar('${c.id}',1)" ${i===w.chars.length-1?'disabled':''}>↓</button><button class="btn soft" onclick="editChar('${c.id}')">編集</button></div></div>`).join(""):`<div class="empty">まだキャラクターがいません</div>`}
+    <button class="btn primary" onclick="editChar()">＋ キャラクターを追加</button>
+  </div>
+  <div class="card"><h2>🔎 サッと調べる</h2>
+    <div class="tabs">
+      <button class="tab active" onclick="quick('date')">指定日</button>
+      <button class="tab" onclick="quick('relative')">○年前／○年後</button>
+      <button class="tab" onclick="quick('person')">Aが○歳</button>
+      <button class="tab" onclick="quick('grade')">Aが○年生</button>
+      <button class="tab" onclick="quick('compare')">2人を比較</button>
+    </div>
+    <div id="quickarea">${quickHTML("date")}</div>
+  </div>
+  <div class="card"><h2>📚 設定資料</h2>
+    <div class="actions"><button class="btn" onclick="showDiff()">年齢差一覧</button><button class="btn" onclick="showSchools()">同学年・在籍期間</button><button class="btn" onclick="showEvents()">イベント・時系列メモ</button></div>
+  </div>`;
+}
+function selectWork(id){db.selected=id;save();render()}
+function newWork(){openSheet(`<h2>新しい作品</h2><label>作品名</label><input id="wn" placeholder="例：春の物語"><label>基準日</label><input id="wd" type="date" value="${new Date().toISOString().slice(0,10)}"><p class="note">ここでの基準日は「この作品で今の年齢を設定した日」です。物語の西暦を公開する必要はありません。</p><div class="actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="createWork()">作成</button></div>`)}
+function createWork(){let n=document.getElementById("wn").value.trim()||"無題の作品";let d=document.getElementById("wd").value;let w={id:uid(),name:n,baseDate:d,chars:[],events:[]};db.works.push(w);db.selected=w.id;save();closeModal();render()}
+function editWork(){let w=work();openSheet(`<h2>作品設定</h2><label>作品名</label><input id="wn" value="${esc(w.name)}"><label>基準日</label><input id="wd" type="date" value="${w.baseDate}"><div class="actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveWork()">保存</button><button class="btn danger" onclick="deleteWork()">作品を削除</button></div>`)}
+function saveWork(){let w=work();w.name=document.getElementById("wn").value.trim()||w.name;w.baseDate=document.getElementById("wd").value;save();closeModal();render()}
+function deleteWork(){if(confirm("この作品とキャラクター設定を削除しますか？")){db.works=db.works.filter(x=>x.id!==db.selected);db.selected=db.works[0]?.id||null;save();closeModal();render()}}
+function editChar(id){
+ let w=work(), c=w.chars.find(x=>x.id===id)||{id:uid(),name:"",baseAge:25,month:1,day:1,note:""};
+ openSheet(`<h2>${id?'キャラクターを編集':'キャラクターを追加'}</h2><label>名前</label><input id="cn" value="${esc(c.name)}" placeholder="例：A"><div class="grid"><div><label>基準日時点の年齢</label><input id="ca" type="number" min="0" max="120" value="${c.baseAge}"></div><div><label>誕生日</label><input id="cm" type="number" min="1" max="12" value="${c.month}"><div class="small">月</div></div></div><label>誕生日（日）</label><input id="cd" type="number" min="1" max="31" value="${c.day}"><label>メモ（任意）</label><textarea id="cnote">${esc(c.note||"")}</textarea><p class="note">生まれ年は入力しません。基準日＋年齢＋誕生日から計算します。</p><div class="actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="saveChar('${id||""}')">保存</button>${id?`<button class="btn danger" onclick="removeChar('${id}')">削除</button>`:""}</div>`)
+}
+function saveChar(id){let w=work(), c={id:id||uid(),name:document.getElementById("cn").value.trim()||"名前未設定",baseAge:+document.getElementById("ca").value,month:+document.getElementById("cm").value,day:+document.getElementById("cd").value,note:document.getElementById("cnote").value};let i=w.chars.findIndex(x=>x.id===c.id);i<0?w.chars.push(c):w.chars[i]=c;save();closeModal();render()}
+function removeChar(id){if(confirm("このキャラクターを削除しますか？")){work().chars=work().chars.filter(c=>c.id!==id);save();closeModal();render()}}
+function quick(type){
+ document.querySelectorAll(".tabs .tab").forEach(b=>b.classList.remove("active"));
+ const area=document.getElementById("quickarea"); area.innerHTML=quickHTML(type);
+}
+function quickHTML(type){
+ let w=work(), cs=w.chars;
+ if(!cs.length)return `<div class="empty">先にキャラクターを登録してください。</div>`;
+ if(type==="date")return `<label>調べたい日</label><input id="qd" type="date" value="${w.baseDate}" onchange="runDate()"><div id="qr"></div>`;
+ if(type==="relative")return `<div class="grid"><div><label>基準</label><select id="rc">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div><div><label>何年</label><input id="ry" type="number" value="3"></div></div><label>方向</label><select id="rd"><option value="after">後</option><option value="before">前</option></select><label>月日（任意）</label><input id="rm" type="date" value="${w.baseDate}"><button class="btn primary" onclick="runRelative()">計算</button><div id="qr"></div>`;
+ if(type==="person")return `<div class="grid"><div><label>基準キャラ</label><select id="pc">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div><div><label>年齢</label><input id="pa" type="number" value="17"></div></div><button class="btn primary" onclick="runPerson()">計算</button><div id="qr"></div>`;
+ if(type==="grade")return `<div class="grid"><div><label>基準キャラ</label><select id="gc">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div><div><label>学年</label><select id="gg"><option>小学1年</option><option>小学2年</option><option>小学3年</option><option>小学4年</option><option>小学5年</option><option>小学6年</option><option>中学1年</option><option>中学2年</option><option>中学3年</option><option>高校1年</option><option>高校2年</option><option selected>高校3年</option><option>大学1年</option><option>大学2年</option><option>大学3年</option><option>大学4年</option></select></div></div><button class="btn primary" onclick="runGrade()">計算</button><div id="qr"></div>`;
+ return `<div class="grid"><div><label>キャラA</label><select id="cmpa">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div><div><label>キャラB</label><select id="cmpb">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div></div><label>比較日</label><input id="cmpd" type="date" value="${w.baseDate}"><button class="btn primary" onclick="runCompare()">比較</button><div id="qr"></div>`;
+}
+function rows(date){return work().chars.map(c=>`<div class="result"><div class="row"><b>${esc(c.name)}</b><strong>${ageAt(c,date)}歳</strong></div><span class="pill">${gradeAt(c,date)}</span></div>`).join("")}
+function runDate(){document.getElementById("qr").innerHTML=rows(document.getElementById("qd").value)+`<div class="actions"><button class="btn" onclick="saveCurrentMemo('指定日：'+document.getElementById('qd').value, document.getElementById('qd').value)">この結果をメモ</button></div>`}
+let relativeState={date:"",name:"",history:[]};
+function relativeTitle(){let h=relativeState.history||[];if(!h.length)return "基準日";if(h.length===1)return h[0];let total=h.slice(1).reduce((sum,x)=>sum+x.value,0);let unit=total>=0?`更に${Math.abs(total)}年後`:`更に${Math.abs(total)}年前`;return `${h[0].label}の${unit}`}
+function renderRelativeResult(){let s=relativeState.date,c=work().chars.find(x=>x.name===relativeState.name)||work().chars[0];if(!c||!s)return;let base=relativeState.history.length?relativeState.history.map(x=>x.label||x).join(" → "):"基準日";let title=relativeTitle();document.getElementById("qr").innerHTML=`<div class="result"><b>${esc(c.name)}：${fmtDate(s)}</b><br><span class="small">${esc(base)} → ${fmtDate(s)}</span></div>`+rows(s)+`<div class="card" style="padding:12px;margin-top:10px"><div class="small">ここからさらに移動</div><div class="actions"><button class="btn" onclick="stepRelative(1)">＋1年</button><button class="btn" onclick="stepRelative(2)">＋2年</button><button class="btn" onclick="stepRelative(5)">＋5年</button><button class="btn soft" onclick="stepRelative(-1)">−1年</button><button class="btn soft" onclick="stepRelative(-2)">−2年</button><button class="btn soft" onclick="stepRelative(-5)">−5年</button></div></div><div class="actions"><button class="btn" onclick="saveCurrentMemo('${esc(c.name)}の${esc(title)}', '${s}')">この結果をメモ</button></div>`}
+function runRelative(){let c=work().chars.find(x=>x.id===document.getElementById("rc").value),n=+document.getElementById("ry").value*(document.getElementById("rd").value==="after"?1:-1),d=new Date(document.getElementById("rm").value+"T12:00:00");if(!c||!document.getElementById("rm").value||!Number.isFinite(n))return;d.setFullYear(d.getFullYear()+n);relativeState={date:d.toISOString().slice(0,10),name:c.name,history:[{label:n>=0?`${Math.abs(n)}年後`:`${Math.abs(n)}年前`,value:n}]};renderRelativeResult()}
+function stepRelative(n){let d=new Date(relativeState.date+"T12:00:00");d.setFullYear(d.getFullYear()+n);relativeState.date=d.toISOString().slice(0,10);relativeState.history.push({label:n>=0?`更に${n}年後`:`更に${Math.abs(n)}年前`,value:n});renderRelativeResult()}
+function runPerson(){let c=work().chars.find(x=>x.id===document.getElementById("pc").value), target=+document.getElementById("pa").value,b=birthDate(c);let y=b.getFullYear()+target,d=new Date(y+"-"+String(c.month).padStart(2,"0")+"-"+String(c.day).padStart(2,"0")+"T12:00:00");let s=d.toISOString().slice(0,10);document.getElementById("qr").innerHTML=`<div class="result"><b>${esc(c.name)}が${target}歳の誕生日：${fmtDate(s)}</b></div>`+rows(s)+`<div class="actions"><button class="btn" onclick="saveCurrentMemo('${esc(c.name)}が${target}歳：'+ '${s}', '${s}')">この結果をメモ</button></div>`}
+function schoolStartDateForGrade(g,birth){let map={"小学1年":6,"小学2年":7,"小学3年":8,"小学4年":9,"小学5年":10,"小学6年":11,"中学1年":12,"中学2年":13,"中学3年":14,"高校1年":15,"高校2年":16,"高校3年":17,"大学1年":18,"大学2年":19,"大学3年":20,"大学4年":21};let age=map[g];let y=birth.getFullYear()+age;let d=new Date(y+"-04-01T12:00:00");if(age>=6)return d}
+function runGrade(){let c=work().chars.find(x=>x.id===document.getElementById("gc").value),g=document.getElementById("gg").value,b=birthDate(c),d=schoolStartDateForGrade(g,b),s=d.toISOString().slice(0,10);document.getElementById("qr").innerHTML=`<div class="result"><b>${esc(c.name)}が${g}の4月1日：${fmtDate(s)}</b></div>`+rows(s)+`<div class="actions"><button class="btn" onclick="saveCurrentMemo('${esc(c.name)}が${esc(g)}：'+ '${s}', '${s}')">この結果をメモ</button></div>`}
+function runCompare(){let a=work().chars.find(x=>x.id===document.getElementById("cmpa").value),b=work().chars.find(x=>x.id===document.getElementById("cmpb").value),d=document.getElementById("cmpd").value,aa=ageAt(a,d),bb=ageAt(b,d);document.getElementById("qr").innerHTML=`<div class="result"><b>${esc(a.name)}：${aa}歳 ／ ${esc(b.name)}：${bb}歳</b><br><span class="small">この日の年齢差：${Math.abs(aa-bb)}歳（誕生日の前後で表示上の差が変わる場合があります）</span></div>`}
+function showDiff(){let cs=work().chars;openSheet(`<h2>年齢差一覧</h2><p class="note">基準日「${fmtDate(work().baseDate)}」時点の年齢で表示します。</p><table><tr><th></th>${cs.map(c=>`<th>${esc(c.name)}</th>`).join("")}</tr>${cs.map(a=>`<tr><th>${esc(a.name)}</th>${cs.map(b=>`<td>${a.id===b.id?'—':(a.baseAge-b.baseAge>0?'+':'')+(a.baseAge-b.baseAge)+'歳'}</td>`).join("")}</tr>`).join("")}</table>`)}
+function showSchools(){let cs=work().chars;openSheet(`<h2>同学年・学校の期間</h2><p class="note">誕生日から日本の4月始まりの学年を計算します。「同学年」は学年が同じ期間を確認するための情報です。</p>${cs.map(c=>`<div class="event"><b>${esc(c.name)}</b><div>${c.baseAge}歳・${c.month}/${c.day}生まれ</div><span class="pill">${gradeAt(c,work().baseDate)}</span></div>`).join("")}<div class="actions">${cs.length>=2?`<button class="btn primary" onclick="schoolPair()">2人の在籍期間を見る</button>`:""}</div>`)}
+function schoolPair(){let cs=work().chars;openSheet(`<h2>2人の学校在籍期間</h2><select id="sa">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><select id="sb">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn primary" style="margin-top:10px" onclick="calcSchoolPair()">確認</button><div id="spr"></div>`)}
+function calcSchoolPair(){let cs=work().chars,a=cs.find(c=>c.id===document.getElementById("sa").value),b=cs.find(c=>c.id===document.getElementById("sb").value);let start=Math.max(birthDate(a).getFullYear()+6,birthDate(b).getFullYear()+6),end=Math.min(birthDate(a).getFullYear()+22,birthDate(b).getFullYear()+22);document.getElementById("spr").innerHTML=`<div class="result"><b>${esc(a.name)} × ${esc(b.name)}</b><br>${start<=end?`おおよそ ${start}年度〜${end-1}年度に学校年齢が重なります。`:"一般的な進学年齢では同時在籍期間なし。"}</div><p class="note">※学校種別・浪人・留年・転校など個別事情はイベント/メモで補正できます。</p>`}
+function moveChar(id,dir){let w=work(),i=w.chars.findIndex(c=>c.id===id),j=i+dir;if(i<0||j<0||j>=w.chars.length)return;[w.chars[i],w.chars[j]]=[w.chars[j],w.chars[i]];save();render()}
+function saveCurrentMemo(title,date){let detail=(document.getElementById("qr")?.innerText||"").trim();if(!detail)return;work().events=work().events||[];let calcRows=date?work().chars.map(c=>({name:c.name,age:ageAt(c,date),grade:gradeAt(c,date)})):[];work().events.push({title:String(title).trim(),detail,type:"calc",calcDate:date||"",calcRows});save();alert("設定資料に保存しました。");}
+function settingsHeader(title){return `<div class="pagehead"><button class="btn soft backbtn" onclick="render()">← 作品画面へ戻る</button><h2>${title}</h2></div>`}
+function openSettingsPage(type){closeModal();renderSettingsPage(type)}
+function renderSettingsPage(type){let root=document.getElementById("app");if(type==="diff"){let cs=work().chars;root.innerHTML=`<div class="page">${settingsHeader("年齢差一覧")}<div class="card"><p class="note">基準日「${fmtDate(work().baseDate)}」時点の年齢差を表示します。</p><table><tr><th></th>${cs.map(c=>`<th>${esc(c.name)}</th>`).join("")}</tr>${cs.map(a=>`<tr><th>${esc(a.name)}</th>${cs.map(b=>`<td>${a.id===b.id?'—':(a.baseAge-b.baseAge>0?'+':'')+(a.baseAge-b.baseAge)+'歳'}</td>`).join("")}</tr>`).join("")}</table></div></div>`;return;}if(type==="school"){let cs=work().chars;root.innerHTML=`<div class="page">${settingsHeader("同学年・在籍期間")}<div class="card"><p class="note">誕生日から日本の4月始まりの学年を計算します。「同学年」は学年が同じ期間を確認するための情報です。</p>${cs.map(c=>`<div class="event"><b>${esc(c.name)}</b><div>${c.baseAge}歳・${c.month}/${c.day}生まれ</div><span class="pill">${gradeAt(c,work().baseDate)}</span></div>`).join("")}<div class="actions">${cs.length>=2?`<button class="btn primary" onclick="schoolPairPage()">2人の在籍期間を見る</button>`:""}</div></div></div>`;return;}renderEventsPage()}
+function showDiff(){openSettingsPage("diff")}
+function showSchools(){openSettingsPage("school")}
+function schoolPairPage(){let cs=work().chars;document.getElementById("app").innerHTML=`<div class="page">${settingsHeader("2人の学校在籍期間")}<div class="card"><select id="sa">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><select id="sb" style="margin-top:8px">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn primary" style="margin-top:10px" onclick="calcSchoolPairPage()">確認</button><div id="spr"></div></div></div>`}
+function calcSchoolPairPage(){let cs=work().chars,a=cs.find(c=>c.id===document.getElementById("sa").value),b=cs.find(c=>c.id===document.getElementById("sb").value);if(!a||!b||a.id===b.id){document.getElementById("spr").innerHTML=`<div class="result">別々のキャラクターを選んでください。</div>`;return;}let ba=birthDate(a),bb=birthDate(b);let start=Math.max(ba.getFullYear()+6,bb.getFullYear()+6),end=Math.min(ba.getFullYear()+22,bb.getFullYear()+22);let rowsHtml="";if(start<=end){for(let y=start;y<end;y++){let d=y+"-04-01";let ga=gradeAt(a,d),gb=gradeAt(b,d);if(ga!=="学校外"&&ga!=="未就学"&&gb!=="学校外"&&gb!=="未就学")rowsHtml+=`<tr><td>${y}年度</td><td>${ageAt(a,d)}歳・${esc(ga)}</td><td>${ageAt(b,d)}歳・${esc(gb)}</td></tr>`}}document.getElementById("spr").innerHTML=rowsHtml?`<div class="result"><b>${esc(a.name)} × ${esc(b.name)}</b><br><span class="small">2人とも学校に在籍している年度だけを表示しています。</span></div><table class="calc-table"><tr><th>年度</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr>${rowsHtml}</table><p class="note">※各年度の4月1日時点の年齢・学年です。浪人・留年・転校・休学など個別事情がある場合は、イベント/メモで補正できます。</p>`:`<div class="result"><b>${esc(a.name)} × ${esc(b.name)}</b><br>2人とも学校に在籍している期間はありません。</div><p class="note">※一般的な進学年齢（小学〜大学）をもとにした計算です。</p>`}
+function renderEventsPage(){let es=work().events||[];document.getElementById("app").innerHTML=`<div class="page">${settingsHeader("イベント・時系列メモ")}<div class="card memo-list">${es.length?es.map((e,i)=>`<div class="event"><div class="memo-title"><button onclick="showEventDetail(${i})">${esc(e.title||"無題のメモ")}</button></div><div class="memo-actions"><button class="btn danger" onclick="delEventPage(${i})">削除</button></div></div>`).join(""):`<div class="empty">まだメモがありません</div>`}<button class="btn primary" onclick="newEvent()">＋ イベントを追加</button></div></div>`}
+function showEvents(){openSettingsPage("events")}
+function showEventDetail(i){let e=work().events[i];let content=e.type==="calc"&&e.calcRows?.length?`<p class="note">${e.calcDate?`計算日：${fmtDate(e.calcDate)}`:"保存した計算結果"}</p><table class="calc-table"><tr><th>キャラクター</th><th>年齢</th><th>学年・状況</th></tr>${e.calcRows.map(r=>`<tr><td>${esc(r.name)}</td><td class="agecol">${r.age}歳</td><td class="gradecol">${esc(r.grade)}</td></tr>`).join("")}</table>`:`<div class="result" style="white-space:pre-wrap">${esc(e.detail||"")}</div>`;document.getElementById("app").innerHTML=`<div class="page">${settingsHeader(e.title||"メモの内容")}<div class="card">${content}</div><div class="actions"><button class="btn" onclick="renderEventsPage()">← メモに戻る</button></div></div>`}
+function editEvent(i){let e=work().events[i];openSheet(`<h2>メモを編集</h2><label>タイトル</label><input id="met" value="${esc(e.title||"")}"><label>内容</label><textarea id="med" style="min-height:180px">${esc(e.detail||"")}</textarea><div class="actions"><button class="btn" onclick="closeModal();renderEventsPage()">戻る</button><button class="btn primary" onclick="updateEvent(${i})">保存</button></div>`)}
+function updateEvent(i){let e=work().events[i];e.title=document.getElementById("met").value.trim()||"無題のメモ";e.detail=document.getElementById("med").value.trim();save();closeModal();renderEventsPage()}
+function newEvent(){openSheet(`<h2>イベントを追加</h2><label>タイトル</label><input id="et" placeholder="例：AとBが出会う"><label>日付・時期</label><input id="ed" placeholder="例：Aが高校3年の夏"><label>覚え書き</label><textarea id="ex" placeholder="その時の年齢、学年、出来事など"></textarea><div class="actions"><button class="btn" onclick="closeModal();renderEventsPage()">戻る</button><button class="btn primary" onclick="addEvent()">保存</button></div>`)}
+function addEvent(){work().events=work().events||[];work().events.push({title:document.getElementById("et").value.trim()||"無題のイベント",detail:(document.getElementById("ed").value+"\n"+document.getElementById("ex").value).trim()});save();closeModal();renderEventsPage()}
+function delEventPage(i){work().events.splice(i,1);save();renderEventsPage()}
+function saveMemo(text){work().events=work().events||[];work().events.push({title:"計算メモ",detail:text});save();alert("設定資料に保存しました。");}
+render();
+
+// 数字入力はタップした時点で内容を全選択し、そのまま入力できるようにする。
+// フリック入力時はキーボードで隠れない位置まで自動スクロールする。
+function keepFocusedInputVisible(el){
+  if(!el || !document.getElementById("modal")?.classList.contains("show")) return;
+  const sheet=document.getElementById("sheet");
+  setTimeout(()=>{
+    try{
+      el.scrollIntoView({behavior:"smooth",block:"center",inline:"nearest"});
+      const r=el.getBoundingClientRect(), vh=window.visualViewport?.height || window.innerHeight;
+      const margin=32;
+      if(r.bottom>vh-margin || r.top<margin){
+        sheet.scrollTop += (r.top+ r.height/2) - vh/2;
+      }
+    }catch(_){}
+  },180);
+}
+document.addEventListener("focusin", e=>{
+  if(e.target.matches('input[type="number"]')){setTimeout(()=>{try{e.target.select()}catch(_){}},0)}
+  if(e.target.matches('input, select, textarea')) keepFocusedInputVisible(e.target);
+});
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize",()=>{
+    const a=document.activeElement;
+    if(a && a.matches('input, select, textarea')) keepFocusedInputVisible(a);
+  });
+  window.visualViewport.addEventListener("scroll",()=>{
+    const a=document.activeElement;
+    if(a && a.matches('input, select, textarea')) keepFocusedInputVisible(a);
+  });
+}
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
+</body>
+</html>

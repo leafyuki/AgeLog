@@ -113,8 +113,42 @@ function render(){
   </div>
   <div class="card"><h2>📚 設定資料</h2>
     <div class="actions"><button class="btn" onclick="showDiff()">年齢差一覧</button><button class="btn" onclick="showSchools()">同学年・在籍期間</button><button class="btn" onclick="showEvents()">イベント・時系列メモ</button></div>
+  </div>
+  <div class="card"><h2>💾 データ管理</h2>
+    <p class="note">作品・キャラクター・メモなど、AgeLogに保存しているデータを端末にバックアップできます。アンインストールや機種変更の前に書き出してください。</p>
+    <div class="actions"><button class="btn primary" onclick="exportBackup()">バックアップを書き出す</button><button class="btn" onclick="importBackup()">バックアップから復元</button></div>
+    <input id="backupFile" type="file" accept="application/json,.json" style="display:none" onchange="handleBackupFile(this)">
   </div>`;
 }
+function exportBackup(){
+  const payload={format:"AgeLog backup",version:1,exportedAt:new Date().toISOString(),data:db};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`AgeLog_backup_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  alert("バックアップを書き出しました。ダウンロード先に保存されていることを確認してください。");
+}
+function importBackup(){document.getElementById("backupFile").click()}
+function handleBackupFile(input){
+  const file=input.files?.[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const payload=JSON.parse(reader.result);
+      const data=payload?.data;
+      if(payload?.format!=="AgeLog backup" || !data || !Array.isArray(data.works)){throw new Error("invalid")};
+      if(!confirm("現在のAgeLogデータをバックアップの内容で置き換えます。よろしいですか？"))return;
+      db={works:data.works,selected:data.selected??data.works[0]?.id??null};
+      save();render();alert("バックアップから復元しました。");
+    }catch(e){alert("このファイルはAgeLogのバックアップとして読み込めませんでした。");}
+    input.value="";
+  };
+  reader.readAsText(file);
+}
+
 function selectWork(id){db.selected=id;save();render()}
 function newWork(){openSheet(`<h2>新しい作品</h2><label>作品名</label><input id="wn" placeholder="例：春の物語"><label>基準日</label><input id="wd" type="date" value="${new Date().toISOString().slice(0,10)}"><p class="note">ここでの基準日は「この作品で今の年齢を設定した日」です。物語の西暦を公開する必要はありません。</p><div class="actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary" onclick="createWork()">作成</button></div>`)}
 function createWork(){let n=document.getElementById("wn").value.trim()||"無題の作品";let d=document.getElementById("wd").value;let w={id:uid(),name:n,baseDate:d,chars:[],events:[]};db.works.push(w);db.selected=w.id;save();closeModal();render()}
